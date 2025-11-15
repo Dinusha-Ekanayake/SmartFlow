@@ -1,0 +1,169 @@
+esphome: 
+name: smart-flow 
+friendly_name: Smart Flow 
+esp32: 
+board: esp32dev 
+framework: 
+type: arduino 
+logger: 
+api: 
+encryption: 
+key: "FfzxqPr2lo64raFrqAc6WxPVyvhdutBBPI/fjipWT3s=" 
+ota: - platform: esphome 
+password: "0af5ef23670371b244e4a8eacd3a9f4e" 
+wifi: 
+ssid: "Shakil" 
+password: "wifiShakil" 
+ap: 
+    ssid: "Smart-Flow Fallback Hotspot" 
+    password: "5AMSDoiAlwK7" 
+ 
+captive_portal: 
+ 
+# AC Dimmer output 
+output: 
+  - platform: ac_dimmer 
+    id: fan_dimmer_output 
+    gate_pin: GPIO4 
+    zero_cross_pin: 
+      number: GPIO2 
+      mode: INPUT_PULLUP 
+      inverted: yes 
+    min_power: 0.25 
+    max_power: 0.70 
+ 
+  - platform: gpio 
+    pin: GPIO22 
+    id: servo_switch_signal 
+ 
+switch: 
+  - platform: output 
+    id: servo_motor_switch 
+    name: "Servo Motor Switch" 
+    output: servo_switch_signal 
+ 
+fan: 
+  - platform: speed 
+    id: controllable_fan 
+    output: fan_dimmer_output 
+    name: "Smart Flow Fan" 
+ 
+# DHT22 Temperature Sensor 
+sensor: 
+  - platform: dht 
+    pin: GPIO14 
+    temperature: 
+      name: "Room Temperature" 
+      id: room_temperature 
+    humidity: 
+      name: "Room Humidity" 
+      id: room_humidity 
+    model: DHT22 
+    update_interval: 30s 
+ 
+font: 
+  - file: "gfonts://Roboto" 
+    id: custom_font 
+    size: 16 
+ 
+i2c: 
+sda: GPIO19 
+scl: GPIO18 
+scan: true 
+frequency: 50kHz 
+display: - platform: ssd1306_i2c 
+model: "SSD1306 128x64" 
+address: 0x3C 
+update_interval: 3s 
+lambda: |- 
+if (!isnan(id(room_temperature).state)) { 
+it.printf(0, 0, id(custom_font), TextAlign::TOP_LEFT, "Temp: %.1f°C", 
+id(room_temperature).state); 
+} else { 
+it.printf(0, 0, id(custom_font), TextAlign::TOP_LEFT, "Temp: --.-°C"); 
+} 
+if (id(controllable_fan).state) { 
+it.printf(0, 20, id(custom_font), TextAlign::TOP_LEFT, "Motor: ON : %d%%", 
+id(controllable_fan).speed); 
+} else { 
+it.printf(0, 20, id(custom_font), TextAlign::TOP_LEFT, "Motor: OFF"); 
+} 
+if (id(servo_motor_switch).state) { 
+it.printf(0, 40, id(custom_font), TextAlign::TOP_LEFT, "Rotation: ON"); 
+      } else { 
+        it.printf(0, 40, id(custom_font), TextAlign::TOP_LEFT, "Rotation: OFF"); 
+      } 
+ 
+binary_sensor: 
+  - platform: gpio 
+    pin: 
+      number: GPIO25 
+      inverted: true 
+      mode: INPUT_PULLUP 
+    name: "Fan Speed Up Button" 
+    id: fan_speed_up_button 
+    on_press: 
+      then: 
+        - lambda: |- 
+            if (!id(controllable_fan).state) { 
+              ESP_LOGD("button", "Fan Speed Up: Fan is OFF. Turning ON with speed 10."); 
+              auto call = id(controllable_fan).turn_on(); 
+              call.set_speed(10); 
+              call.perform(); 
+            } else { 
+              int current_speed = id(controllable_fan).speed; 
+              int new_speed = current_speed + 10; 
+              if (new_speed > 100) new_speed = 100; 
+              auto call = id(controllable_fan).make_call(); 
+              call.set_speed(new_speed); 
+              call.perform(); 
+            } 
+ 
+  - platform: gpio 
+    pin: 
+      number: GPIO26 
+      inverted: true 
+      mode: INPUT_PULLUP 
+    name: "Fan Speed Down Button" 
+    id: fan_speed_down_button 
+    on_press: 
+      then: 
+        - lambda: |- 
+            if (id(controllable_fan).state) { 
+              int current_speed = id(controllable_fan).speed; 
+              int new_speed = current_speed - 10; 
+              if (new_speed < 0) new_speed = 0; 
+              auto call = id(controllable_fan).make_call(); 
+              call.set_speed(new_speed); 
+              call.perform(); 
+            } 
+ 
+  - platform: gpio 
+    pin: 
+      number: GPIO27 
+      inverted: true 
+      mode: INPUT_PULLUP 
+    name: "Fan Toggle Button" 
+    id: fan_toggle_button 
+    on_press: 
+      then: 
+        - if: 
+            condition: 
+              fan.is_on: controllable_fan 
+            then: 
+              - fan.turn_off: controllable_fan 
+              - switch.turn_off: servo_motor_switch 
+            else: 
+              - fan.turn_on: 
+                  id: controllable_fan 
+ 
+  - platform: gpio 
+    pin: 
+      number: GPIO23 
+      inverted: true 
+      mode: INPUT_PULLUP 
+    name: "Servo Toggle Button" 
+    id: servo_toggle_button 
+    on_press: 
+      then: 
+        - switch.toggle: servo_motor_switch

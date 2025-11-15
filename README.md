@@ -52,7 +52,7 @@ Contributions are welcome. Please follow these guidelines:
 - Follow the existing C++ style in the codebase.
 
 ## License
-See the LICENSE file in the repository for licensing information. If there is no LICENSE file, please contact the repository owner to clarify licensing.
+See the LICENSE file in the repository for licensing information.
 
 ## Contact
 Repository owner: @Dinusha-Ekanayake
